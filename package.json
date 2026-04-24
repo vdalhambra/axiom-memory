@@ -1,0 +1,9 @@
+{
+  "name": "axiom-memory",
+  "version": "0.1.0",
+  "description": "Claude Code memory that survives every session — pre-compact state capture + cloud sync + team patterns.",
+  "private": true,
+  "scripts": {
+    "deploy": "vercel deploy --prod"
+  }
+}

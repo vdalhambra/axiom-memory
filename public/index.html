@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Axiom Memory — Claude Code memory that survives /compact</title>
+<meta name="description" content="Stop losing context on every session. Pre-compact state capture, cloud sync, and team pattern sharing — a plugin that installs in 30 seconds.">
+<meta property="og:title" content="Axiom Memory — memory for Claude Code that actually persists">
+<meta property="og:description" content="59 compactions in 26 days? 68 minutes/day re-explaining code? Stop. Install a plugin.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://axiommemory.dev">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b0e;
+    --bg-2: #11131a;
+    --text: #eaecf0;
+    --text-dim: #7c8391;
+    --accent: #c5f048;
+    --accent-dim: #8fb42e;
+    --danger: #ff6b6b;
+    --border: #1a1e27;
+    --card: #151922;
+    --font: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(10, 11, 14, 0.85);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+  }
+  .hdr-row { display: flex; justify-content: space-between; align-items: center; }
+  .logo {
+    font-family: var(--mono);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent); }
+  nav a {
+    color: var(--text-dim);
+    margin-left: 22px;
+    text-decoration: none;
+    font-size: 14px;
+  }
+  nav a:hover { color: var(--text); }
+
+  .hero {
+    padding: 100px 0 70px;
+    border-bottom: 1px solid var(--border);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 18px;
+    letter-spacing: 0.5px;
+  }
+  h1 {
+    font-size: clamp(36px, 5.5vw, 60px);
+    line-height: 1.05;
+    margin: 0 0 22px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+  h1 .accent { color: var(--accent); }
+  h1 .strike { color: var(--text-dim); text-decoration: line-through; text-decoration-color: var(--danger); }
+  .sub {
+    color: var(--text-dim);
+    font-size: 19px;
+    max-width: 680px;
+    margin: 0 0 32px;
+  }
+  .sub strong { color: var(--text); }
+
+  .waitlist-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: 480px;
+  }
+  .waitlist-form input {
+    flex: 1;
+    min-width: 260px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-2);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+  }
+  .waitlist-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn {
+    display: inline-block;
+    padding: 14px 22px;
+    border-radius: 8px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .btn.primary:hover {
+    transform: translateY(-1px);
+    background: var(--accent-dim);
+    border-color: var(--accent-dim);
+  }
+  .btn.ghost {
+    color: var(--text);
+    background: transparent;
+  }
+  .btn.ghost:hover { border-color: var(--text-dim); }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  section { padding: 70px 0; border-bottom: 1px solid var(--border); }
+  h2 {
+    font-size: 32px;
+    margin: 0 0 12px;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+  .section-sub { color: var(--text-dim); margin: 0 0 36px; font-size: 17px; max-width: 620px; }
+
+  .pain-points {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .pain {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+  }
+  .pain .metric {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--danger);
+    margin-bottom: 8px;
+  }
+  .pain .desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .pain .src {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+  .pain .src a { color: var(--text-dim); }
+
+  .how-works {
+    margin-top: 30px;
+  }
+  .step {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-body h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .step-body p { margin: 0; color: var(--text-dim); font-size: 15px; }
+  .step-body code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--accent);
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .tier {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .tier.featured {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, var(--card), #1b1f2a);
+  }
+  .tier-name {
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .tier .price {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .tier .price span {
+    font-size: 16px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .tier .features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-dim);
+    flex-grow: 1;
+  }
+  .tier .features li {
+    padding: 5px 0;
+    padding-left: 20px;
+    position: relative;
+  }
+  .tier .features li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+  .tier-cta {
+    margin-top: auto;
+    text-align: center;
+    padding: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-family: var(--mono);
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+  .tier-cta.primary {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+  }
+  .tier-cta.primary:hover { background: var(--accent-dim); }
+  .tier-cta.secondary {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .tier-cta.secondary:hover {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .launch-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--danger);
+    color: var(--text);
+    margin-left: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .code-block {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 20px 0;
+    overflow-x: auto;
+    line-height: 1.7;
+  }
+  .code-block .prompt { color: var(--accent); }
+  .code-block .comment { color: #5a6371; }
+  .code-block .highlight { color: var(--text); font-weight: 600; }
+
+  .faq {
+    margin-top: 30px;
+  }
+  .faq-item {
+    border-bottom: 1px solid var(--border);
+    padding: 22px 0;
+  }
+  .faq-item:last-child { border-bottom: 0; }
+  .faq-q {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .faq-a {
+    color: var(--text-dim);
+    font-size: 15px;
+  }
+
+  .cta-section {
+    text-align: center;
+    padding: 90px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .cta-section h2 {
+    margin-bottom: 16px;
+  }
+
+  footer {
+    padding: 40px 0;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+  footer a { color: var(--text); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+  .footer-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+
+  .success-msg {
+    display: none;
+    padding: 14px 18px;
+    background: rgba(197, 240, 72, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--accent);
+    margin-top: 14px;
+    max-width: 480px;
+    font-size: 14px;
+  }
+  .success-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container hdr-row">
+    <a class="logo" href="/">axiom<span>.</span>memory</a>
+    <nav>
+      <a href="#how">how</a>
+      <a href="#pricing">pricing</a>
+      <a href="https://github.com/vdalhambra/axiom-reflex" target="_blank">github</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="pill">// launching may 2026 — join the waitlist</div>
+    <h1>Memory that survives<br>every <span class="strike">/compact</span> <span class="accent">and restart.</span></h1>
+    <p class="sub">
+      Claude Code forgets. You remember. That context loss is costing you <strong>68 minutes a day</strong> — in re-explanation, re-architecture, re-everything. Axiom Memory is a plugin that captures state before compaction and restores it instantly, with cloud sync so your patterns follow you across machines.
+    </p>
+    <form class="waitlist-form" id="waitlist-form">
+      <input type="email" name="email" placeholder="you@company.com" required>
+      <button type="submit" class="btn primary">Get early access</button>
+    </form>
+    <div class="success-msg" id="success-msg">
+      ✓ You're on the list. You'll get first access + lifetime $19/mo pricing (normal $29/mo).
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>The cost of context loss</h2>
+    <p class="section-sub">Not theoretical. These are the numbers the community is posting right now.</p>
+
+    <div class="pain-points">
+      <div class="pain">
+        <div class="metric">68 min</div>
+        <div class="desc">per day re-explaining code to Claude after compactions and new sessions.</div>
+        <div class="src"><a href="https://devblogs.microsoft.com/all-things-azure/i-wasted-68-minutes-a-day-re-explaining-my-code-then-i-built-auto-memory/" target="_blank">Microsoft DevBlog, 2026</a></div>
+      </div>
+
+      <div class="pain">
+        <div class="metric">59×</div>
+        <div class="desc">compactions in a single 26-day project. Every one loses working state.</div>
+        <div class="src"><a href="https://github.com/anthropics/claude-code/issues/34556" target="_blank">anthropic/claude-code #34556</a></div>
+      </div>
+
+      <div class="pain">
+        <div class="metric">97M</div>
+        <div class="desc">MCP installs and counting. The tooling is winning. The memory isn't.</div>
+        <div class="src">Anthropic, Mar 2026</div>
+      </div>
+
+      <div class="pain">
+        <div class="metric">$500+</div>
+        <div class="desc">in API costs burned per dev-month on re-embedding context that should have persisted.</div>
+        <div class="src">Community estimate, 2026</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="container">
+    <h2>How it works</h2>
+    <p class="section-sub">Install a plugin. Do nothing else. Your memory follows you.</p>
+
+    <div class="how-works">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Install in 30 seconds</h3>
+          <p><code>pip install axiom-memory</code> → <code>claude mcp add axiom-memory ...</code>. Your existing skills + hooks keep working.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Pre-compact capture, automatic</h3>
+          <p>A PreCompact hook dumps your active context, pinned facts, thread IDs, and work-in-flight to durable storage. Zero manual save.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Next session, instant restore</h3>
+          <p>SessionStart hook pulls the last snapshot. You resume exactly where you left off. Works across machines via cloud sync.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Empirical pattern library</h3>
+          <p>Every successful workflow is captured as a reusable pattern. Next time Claude needs to post a LinkedIn comment or reply inside a Gmail thread, it finds the working recipe — no trial and error.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Team pattern sharing (Pro)</h3>
+          <p>Your team shares successful patterns. Fix a Playwright selector once. The whole team benefits. Private to your workspace.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>What this replaces</h2>
+    <p class="section-sub">The things people are building manually right now to solve this.</p>
+    <div class="code-block">
+<span class="comment"># Without Axiom Memory (everyday reality):</span>
+<span class="prompt">$</span> <span class="highlight">claude</span>
+<span class="comment"># context compaction triggered after 180 messages</span>
+<span class="comment"># → thread_ids lost, decision history lost, pattern knowledge lost</span>
+<span class="prompt">$</span> <span class="highlight">claude</span> <span class="comment"># new session</span>
+<span class="comment"># → "what were we working on?"</span>
+<span class="comment"># → manual context reload, 68 min wasted</span>
+
+<span class="comment"># With Axiom Memory:</span>
+<span class="prompt">$</span> <span class="highlight">claude</span>
+<span class="comment"># PreCompact hook → state captured to cloud</span>
+<span class="comment"># Claude Code compacts (still fast)</span>
+<span class="comment"># SessionStart hook → state restored + patterns auto-loaded</span>
+<span class="comment"># → "picked up where we left off: outreach batch 2, 11/40 leads done"</span>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="container">
+    <h2>Pricing</h2>
+    <p class="section-sub">Free forever for local-only use. Pay when cloud sync actually saves your day.</p>
+
+    <div class="pricing-grid">
+      <div class="tier">
+        <div class="tier-name">Local / OSS</div>
+        <div class="price">$0 <span>/ forever</span></div>
+        <ul class="features">
+          <li>Full plugin, local SQLite storage</li>
+          <li>Pattern library (your own)</li>
+          <li>PreCompact + SessionStart hooks</li>
+          <li>No account required</li>
+          <li>Open source on GitHub</li>
+        </ul>
+        <a class="tier-cta secondary" href="https://github.com/vdalhambra/axiom-reflex" target="_blank">View on GitHub</a>
+      </div>
+
+      <div class="tier featured">
+        <div class="tier-name">Pro <span class="launch-badge">launch $19/mo</span></div>
+        <div class="price">$29 <span>/ mo</span></div>
+        <ul class="features">
+          <li>Everything in Local</li>
+          <li>Cloud sync across machines</li>
+          <li>Cross-session resume</li>
+          <li>Semantic search over all patterns</li>
+          <li>Durable checkpoint (jobs survive restart)</li>
+          <li>Email digest: patterns saved this week</li>
+        </ul>
+        <a class="tier-cta primary" href="#waitlist">Join waitlist — lifetime $19 for first 100</a>
+      </div>
+
+      <div class="tier">
+        <div class="tier-name">Team</div>
+        <div class="price">$79 <span>/ mo / workspace</span></div>
+        <ul class="features">
+          <li>Everything in Pro × N seats</li>
+          <li>Shared pattern library (private)</li>
+          <li>Team pattern review workflow</li>
+          <li>Usage analytics dashboard</li>
+          <li>Priority support</li>
+          <li>SSO (SAML / Google Workspace)</li>
+        </ul>
+        <a class="tier-cta secondary" href="#waitlist">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2>FAQ</h2>
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q">Is this an MCP or a Claude Code plugin?</div>
+        <div class="faq-a">Both. It installs as an MCP server (for tools) and registers hooks (PreCompact, SessionStart) via Claude Code's plugin system. Requires Claude Code ≥2.0.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Do you store my code or prompts in the cloud?</div>
+        <div class="faq-a">Never code files. Only the memory payloads you explicitly write via the plugin tools (patterns, checkpoints, references). Encrypted at rest. We also support a "local-only" mode where nothing leaves your machine.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I self-host the backend?</div>
+        <div class="faq-a">Yes. The backend is a thin FastAPI + Postgres setup. Team tier includes a self-host deployment script. Free tier is local-only by default.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What's the difference vs Letta / Mem0 / Zep?</div>
+        <div class="faq-a">Those are general-purpose memory frameworks you integrate yourself. Axiom Memory is the specific shape for Claude Code — pre-compact hook, skill-friendly retrieval, MCP-native. No integration work.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">When does early access start?</div>
+        <div class="faq-a">First 50 waitlist users get access in week 3 of May 2026. Public launch late May. Waitlist users get lifetime $19/mo pricing even after public launch at $29/mo.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Built by who?</div>
+        <div class="faq-a">Solo founder behind Axiom — 5 MCPs live (FinanceKit, SiteAudit, axiom-perception, axiom-vector, axiom-checkpoint). Shipping daily. <a href="https://x.com/axiom_ia" target="_blank">@axiom_ia</a>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="container">
+    <h2>Ship now. Remember later.</h2>
+    <p class="section-sub" style="margin-left:auto;margin-right:auto;">Join the waitlist. First 50 get lifetime $19/mo + week-3 early access.</p>
+    <form class="waitlist-form" id="waitlist-form-bottom" style="margin: 0 auto;">
+      <input type="email" name="email" placeholder="you@company.com" required>
+      <button type="submit" class="btn primary">Get early access</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-row">
+    <div>axiom.memory / solo founder build · <a href="https://x.com/axiom_ia" target="_blank">@axiom_ia</a> · <a href="https://github.com/vdalhambra" target="_blank">github</a></div>
+    <div><a href="/privacy">privacy</a> · <a href="/terms">terms</a></div>
+  </div>
+</footer>
+
+<script>
+  async function submitWaitlist(form) {
+    const email = form.querySelector('input[name="email"]').value;
+    const btn = form.querySelector('button');
+    const originalBtnText = btn.textContent;
+    btn.textContent = 'Adding...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'landing' })
+      });
+      if (res.ok) {
+        document.getElementById('success-msg').classList.add('show');
+        form.style.display = 'none';
+      } else {
+        btn.textContent = 'Error — retry';
+        btn.disabled = false;
+      }
+    } catch (e) {
+      btn.textContent = 'Error — retry';
+      btn.disabled = false;
+    }
+  }
+  document.getElementById('waitlist-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitWaitlist(e.target);
+  });
+  document.getElementById('waitlist-form-bottom')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    submitWaitlist(e.target);
+  });
+</script>
+
+</body>
+</html>
