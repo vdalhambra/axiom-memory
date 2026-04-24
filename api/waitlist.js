@@ -42,6 +42,8 @@ export default async function handler(req) {
   const SUPABASE_URL = process.env.SUPABASE_URL;
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  let supabaseStatus = 'skip';
+  let supabaseError = null;
   if (SUPABASE_URL && SUPABASE_KEY) {
     try {
       const resp = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
@@ -50,19 +52,23 @@ export default async function handler(req) {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`,
           'Content-Type': 'application/json',
-          'Prefer': 'resolution=ignore-duplicates',
+          'Prefer': 'resolution=ignore-duplicates,return=minimal',
         },
         body: JSON.stringify({ email, source, user_agent: userAgent, ip }),
       });
+      supabaseStatus = resp.status;
       if (!resp.ok && resp.status !== 409) {
-        // 409 = conflict (email already exists) — treat as success
-        console.error('supabase waitlist insert failed', resp.status, await resp.text());
+        supabaseError = await resp.text();
+        console.error('supabase waitlist insert failed', resp.status, supabaseError);
       }
     } catch (e) {
+      supabaseStatus = 'threw';
+      supabaseError = String(e);
       console.error('supabase call threw', e);
     }
   } else {
-    console.log('[waitlist-no-supabase]', { email, source, ts: new Date().toISOString() });
+    console.log('[waitlist-no-supabase]', { email, source, SUPABASE_URL: !!SUPABASE_URL, SUPABASE_KEY: !!SUPABASE_KEY });
+    supabaseStatus = 'env_missing';
   }
 
   // Optional: forward to Resend for founder notification
@@ -88,5 +94,5 @@ export default async function handler(req) {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+  return new Response(JSON.stringify({ ok: true, debug: { supabaseStatus, supabaseError } }), { status: 200, headers });
 }
