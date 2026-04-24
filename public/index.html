@@ -53,8 +53,27 @@
     font-weight: 700;
     color: var(--text);
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1a1e27;
   }
   .logo span { color: var(--accent); }
+  .hero-avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1a1e27;
+    margin-bottom: 22px;
+    box-shadow: 0 0 0 3px rgba(197, 240, 72, 0.18);
+  }
   nav a {
     color: var(--text-dim);
     margin-left: 22px;
@@ -398,7 +417,7 @@
 
 <header>
   <div class="container hdr-row">
-    <a class="logo" href="/">axiom<span>.</span>memory</a>
+    <a class="logo" href="/"><img src="/axiom-avatar.png" alt="Axiom" class="logo-avatar">axiom<span>.</span>memory</a>
     <nav>
       <a href="#how">how</a>
       <a href="#pricing">pricing</a>
@@ -409,6 +428,7 @@
 
 <section class="hero">
   <div class="container">
+    <img src="/axiom-avatar.png" alt="Axiom" class="hero-avatar">
     <div class="pill">// launching may 2026 — join the waitlist</div>
     <h1>Memory that survives<br>every <span class="strike">/compact</span> <span class="accent">and restart.</span></h1>
     <p class="sub">
